@@ -150,6 +150,18 @@ textarea{min-height:84px;resize:vertical}
 .zr{display:grid;grid-template-columns:1fr;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
 .zr:last-child{border:0}
 .zr .row3{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+.tab{position:relative}
+.bdg{position:absolute;top:3px;right:calc(50% - 26px);min-width:18px;height:18px;border-radius:9px;background:var(--orange);color:#fff;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.bell{position:relative;background:none;border:0;padding:6px;color:var(--green-d);min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.bell svg{width:26px;height:26px}
+.bell .bdg{top:2px;right:2px}
+.qs{display:flex;align-items:center;gap:8px}
+.qs>button:not(.btn){width:42px;height:42px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);font-size:1.3rem;font-weight:700;color:var(--green-d)}
+.qs input{width:96px;text-align:center}
+.tl{display:flex;flex-direction:column;gap:4px;font-size:.88rem;border-left:3px solid var(--green);padding-left:10px}
+.ln{display:flex;flex-direction:column}
+button.card{font:inherit;color:inherit;cursor:pointer;gap:2px}
+.zr .row3{display:grid;gap:8px;align-items:end}
 @media (max-width:360px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -198,6 +210,11 @@ function toast(msg, kind){
   clearTimeout(toast.h); toast.h = setTimeout(function(){ t.innerHTML = ''; }, kind === 'err' ? 6000 : 3000);
 }
 var ICONS = {
+  bell: '<path d="M6 17h12l-1.5-2v-5a4.5 4.5 0 10-9 0v5zM10 20a2 2 0 004 0"/>',
+  cart: '<path d="M3 4h2l2.4 11h10.2L20 7H6"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>',
+  receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/>',
+  truck: '<path d="M2 6h11v10H2zM13 9h4l3 3v4h-7"/><circle cx="6" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
+  cash: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',
   home: '<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
   box: '<path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/>',
@@ -253,7 +270,8 @@ var S = {
   cat: { items: null, q: '', catId: null, subId: null },
   mesProduits: null, mesDemandes: null,
   adm: { fourn: null, prod: null, fFilter: 'en_attente', pFilter: 'en_attente', zProv: null, zVilles: null },
-  sheet: null, pf: null, confirm: null
+  sheet: null, pf: null, confirm: null,
+  cart: null, addrs: null, orders: null, supOrders: null, livOrders: null, caisse: null, versements: null, notifs: null, creneaux: null, hist: null, success: null, supFilter: 'todo', pollT: null
 };
 function setSession(d){
   S.session = { access_token: d.access_token, refresh_token: d.refresh_token, expires_at: d.expires_at || (Math.floor(Date.now() / 1000) + (d.expires_in || 3600)), user: d.user };
@@ -261,7 +279,8 @@ function setSession(d){
 }
 function signOut(msg){
   S.session = null; S.profile = null; S.fourn = null; S.adminLevel = null; S.mesProduits = null; S.mesDemandes = null;
-  S.adm.fourn = null; S.adm.prod = null; S.adm.zVilles = null; S.sheet = null; S.pf = null; S.draft = {}; S.tab = null; S.screen = 'welcome'; S.error = msg || '';
+  S.adm = { fourn: null, prod: null, fFilter: 'en_attente', pFilter: 'en_attente', zProv: null, zVilles: null }; S.sheet = null; S.pf = null; S.draft = {}; S.tab = null; S.screen = 'welcome'; S.error = msg || '';
+  S.cart = S.addrs = S.orders = S.supOrders = S.livOrders = S.caisse = S.versements = S.notifs = S.hist = S.success = null; S.confirm = null; clearInterval(S.pollT); S.pollT = null;
   S.cat = { items: null, q: '', catId: null, subId: null, token: 0 };
   store.del('biso.session'); render();
 }
@@ -455,7 +474,7 @@ function topbar(extra){
   return '<header class="top"><img class="em" src="' + ICON + '" alt=""><div class="wm"><b>BISO</b> <i>MARKET</i></div><div class="sp"></div>' + (extra || '') + '</header>';
 }
 function tabsBar(list){
-  return '<nav class="tabs">' + list.map(function(t){ return '<button class="tab' + (S.tab === t[0] ? ' on' : '') + '" data-act="tab" data-v="' + t[0] + '">' + ico(t[2]) + '<span>' + t[1] + '</span></button>'; }).join('') + '</nav>';
+  return '<nav class="tabs">' + list.map(function(t){ return '<button class="tab' + (S.tab === t[0] ? ' on' : '') + '" data-act="tab" data-v="' + t[0] + '">' + ico(t[2]) + '<span>' + t[1] + '</span>' + badgeFor(t[0]) + '</button>'; }).join('') + '</nav>';
 }
 function photoOf(p){
   var m = (p.produit_medias || []).filter(function(x){ return x.type === 'photo'; }).sort(function(a, b){ return a.ordre - b.ordre; })[0];
@@ -482,7 +501,7 @@ function gridHtml(){
 }
 function catalogueView(){
   var c = S.cat, cats = S.cats || [], tops = cats.filter(function(x){ return !x.parent_id; }), subs = c.catId ? cats.filter(function(x){ return x.parent_id === c.catId; }) : [];
-  var h = '<div class="note info small">La commande en ligne arrive très bientôt. Vous pouvez déjà parcourir les produits.</div>';
+  var h = S.session ? '' : '<div class="note info small">Créez un compte client pour commander.</div>';
   h += '<div class="field"><input id="q" type="search" placeholder="Rechercher : tilapia, ndakala, poisson fumé…" value="' + esc(c.q) + '" aria-label="Rechercher un produit"></div>';
   h += '<div class="chips"><button class="chip' + (!c.catId ? ' on' : '') + '" data-act="cat" data-v="">Tout</button>' + tops.map(function(x){ return '<button class="chip' + (c.catId === x.id ? ' on' : '') + '" data-act="cat" data-v="' + x.id + '">' + esc(x.nom) + '</button>'; }).join('') + '</div>';
   if (subs.length) h += '<div class="chips">' + subs.map(function(x){ return '<button class="chip' + (c.subId === x.id ? ' on' : '') + '" data-act="sub" data-v="' + x.id + '">' + esc(x.nom) + '</button>'; }).join('') + '</div>';
@@ -517,7 +536,14 @@ function detailSheet(p){
     '<div><span class="pp" style="font-size:1.3rem">' + money(p.prix, p.devise) + '</span> <span class="muted">/ ' + esc((p.unites || {}).libelle || '') + '</span></div>' + '<div>' + stock + '</div>' +
     '<dl class="kv">' + (f ? '<dt>Vendeur</dt><dd>' + esc(f.nom_commerce) + '</dd>' : '') + '<dt>Quantité minimale</dt><dd>' + qty(p.quantite_min) + ' ' + esc((p.unites || {}).libelle || '') + '</dd>' +
     (p.origine ? '<dt>Origine</dt><dd>' + esc(p.origine) + '</dd>' : '') + (p.conservation ? '<dt>Conservation</dt><dd>' + esc(p.conservation) + '</dd>' : '') + '</dl>' +
-    (p.description ? '<p>' + esc(p.description).replace(/\n/g, '<br>') + '</p>' : '');
+    (p.description ? '<p>' + esc(p.description).replace(/\n/g, '<br>') : '') + (p.description ? '</p>' : '') + buyHtml(p);
+}
+function buyHtml(p){
+  var u = (p.unites || {}).libelle || '';
+  if (p.disponible === false || p.stock === 0) return '';
+  if (S.session && S.profile && S.profile.role === 'client')
+    return '<div class="card"><label class="lab" for="dq">Quantité (' + esc(u) + ')</label><div class="qs"><input id="dq" type="number" inputmode="decimal" min="' + p.quantite_min + '" step="any" value="' + p.quantite_min + '"><button class="btn" style="flex:1" data-act="addcart" data-v="' + p.id + '">Ajouter au panier</button></div><p class="hint">Paiement à la livraison, en espèces.</p></div>';
+  return '<div class="note info small">Connectez-vous avec un compte client pour commander.</div><button class="btn" data-act="go" data-v="login">Se connecter</button>';
 }
 function requestSheet(){
   return '<div class="sh-h"><h2>Demander un produit</h2><button class="x" data-act="close" aria-label="Fermer">×</button></div>' +
@@ -687,20 +713,22 @@ function compteView(){
 
 /* ---------- Rendu ---------- */
 function shellFor(role){
-  if (role === 'client') return { tabs: [['accueil', 'Accueil', 'home'], ['compte', 'Compte', 'user']], def: 'accueil' };
-  if (role === 'fournisseur') return { tabs: [['produits', 'Produits', 'box'], ['profil', 'Boutique', 'user']], def: 'produits' };
-  if (role === 'admin') return { tabs: [['fourn', 'Fournisseurs', 'users'], ['prod', 'Produits', 'box'], ['zones', 'Zones', 'map'], ['compte', 'Compte', 'shield']], def: 'fourn' };
+  if (role === 'client') return { tabs: [['accueil', 'Accueil', 'home'], ['panier', 'Panier', 'cart'], ['commandes', 'Commandes', 'receipt'], ['compte', 'Compte', 'user']], def: 'accueil' };
+  if (role === 'fournisseur') return { tabs: [['commandes', 'Commandes', 'receipt'], ['produits', 'Produits', 'box'], ['profil', 'Boutique', 'user']], def: 'commandes' };
+  if (role === 'livreur') return { tabs: [['courses', 'Courses', 'truck'], ['caisse', 'Caisse', 'cash'], ['compte', 'Compte', 'user']], def: 'courses' };
+  if (role === 'admin') return { tabs: [['cmd', 'Commandes', 'receipt'], ['fourn', 'Vendeurs', 'users'], ['prod', 'Produits', 'box'], ['liv', 'Livraison', 'truck'], ['fin', 'Finances', 'cash'], ['compte', 'Compte', 'shield']], def: 'cmd' };
   return { tabs: [['compte', 'Compte', 'user']], def: 'compte' };
 }
 function page(){
-  var r = S.profile.role;
-  if (r === 'client') return S.tab === 'compte' ? clientCompte() : clientAccueil();
+  var r = S.profile.role, t = S.tab;
+  if (r === 'client') return t === 'compte' ? clientCompte() : t === 'panier' ? cartView() : t === 'commandes' ? clientOrders() : clientAccueil();
   if (r === 'fournisseur'){
-    if (!S.fourn) return S.tab === 'profil' ? fournProfil() : fournSetupView();
-    return S.tab === 'profil' ? fournProfil() : produitsView();
+    if (!S.fourn) return t === 'profil' ? fournProfil() : fournSetupView();
+    return t === 'profil' ? versementsCard() + fournProfil() : t === 'produits' ? produitsView() : supOrders();
   }
-  if (r === 'admin') return S.tab === 'prod' ? admProd() : S.tab === 'zones' ? admZones() : S.tab === 'compte' ? compteView() : admFourn();
-  return '<div class="note ok">Votre compte livreur est actif. L\'espace livreur (courses, statuts, caisse) arrive dans la prochaine étape. Vous serez prévenu dès qu\'une course vous sera attribuée.</div>' + compteView();
+  if (r === 'livreur') return t === 'caisse' ? livCaisse() : t === 'compte' ? compteView() : livCourses();
+  if (r === 'admin') return t === 'fourn' ? admFourn() : t === 'prod' ? admProdWrap() : t === 'liv' ? admLiv() : t === 'fin' ? admFin() : t === 'compte' ? compteView() : admCmd();
+  return compteView();
 }
 function sheetHtml(){
   if (!S.sheet) return '';
@@ -708,6 +736,8 @@ function sheetHtml(){
   if (S.sheet === 'detail'){ var p = (S.cat.items || []).filter(function(x){ return x.id === S.sheetId; })[0]; h = p ? detailSheet(p) : ''; }
   else if (S.sheet === 'request') h = requestSheet();
   else if (S.sheet === 'product') h = productSheet();
+  else if (S.sheet === 'notifs') h = notifsSheet();
+  else if (S.sheet === 'success') h = successSheet();
   return '<div class="ov" data-act="ovclose"><div class="sheet" role="dialog" aria-modal="true">' + h + '</div></div>';
 }
 function render(){
@@ -720,7 +750,7 @@ function render(){
   } else {
     var sh = shellFor(S.profile.role);
     if (!S.tab) S.tab = sh.def;
-    html = topbar() + '<main class="wrap pg">' + page() + '</main>' + tabsBar(sh.tabs);
+    html = topbar(bellHtml()) + '<main class="wrap pg">' + page() + '</main>' + tabsBar(sh.tabs);
   }
   var sy = window.scrollY, active = document.activeElement && document.activeElement.id;
   app.innerHTML = html + sheetHtml();
@@ -740,24 +770,37 @@ function boot(){
     S.profile = rows[0];
     if (!S.profile.actif) throw new ApiError('Ce compte est désactivé. Contactez le service client.', 403);
     return afterProfile();
-  }).then(function(){ S.loading = false; render(); onTab(); }).catch(function(e){
+  }).then(function(){ S.loading = false; render(); onTab(); startPoll(); }).catch(function(e){
     S.loading = false; S.error = e.message; S.profile = null; render();
   });
 }
 function afterProfile(){
-  var r = S.profile.role;
-  if (r === 'client') return Promise.all([ensureCats(), ensureProvinces()]).then(loadCatalogue).then(function(){});
-  if (r === 'fournisseur') return Promise.all([ensureCats(), ensureUnites(), ensureProvinces(), rest('fournisseurs?user_id=eq.' + uid() + '&select=*').then(function(x){ S.fourn = x && x[0] || null; })]);
-  if (r === 'admin') return Promise.all([ensureCats(), ensureProvinces(), rest('admins?user_id=eq.' + uid() + '&select=niveau').then(function(x){ S.adminLevel = x && x[0] ? x[0].niveau : null; })]);
-  return Promise.resolve();
+  var r = S.profile.role, quiet = function(){};
+  if (r === 'client') return Promise.all([ensureCats(), ensureProvinces(), ensureCreneaux(), loadNotifs().catch(quiet)]).then(loadCatalogue).then(function(){ loadCart(); });
+  if (r === 'fournisseur') return Promise.all([ensureCats(), ensureUnites(), ensureProvinces(), ensureCreneaux(), loadNotifs().catch(quiet), rest('fournisseurs?user_id=eq.' + uid() + '&select=*').then(function(x){ S.fourn = x && x[0] || null; })]).then(function(){ if (S.fourn) loadSupOrders(); });
+  if (r === 'admin') return Promise.all([ensureCats(), ensureProvinces(), ensureCreneaux(), loadNotifs().catch(quiet), rest('admins?user_id=eq.' + uid() + '&select=niveau').then(function(x){ S.adminLevel = x && x[0] ? x[0].niveau : null; })]);
+  return Promise.all([ensureCreneaux(), loadNotifs().catch(quiet)]);
 }
-function onTab(){
+function onTab(force){
   var r = S.profile && S.profile.role, t = S.tab;
-  if (r === 'client' && t === 'compte' && S.mesDemandes == null) rest('demandes_produits?select=*&order=created_at.desc').then(function(x){ S.mesDemandes = x || []; render(); }).catch(function(e){ toast(e.message, 'err'); });
-  if (r === 'fournisseur' && t === 'produits' && S.fourn && S.mesProduits == null) loadMesProduits();
-  if (r === 'admin' && t === 'fourn' && S.adm.fourn == null) loadAdmFourn();
-  if (r === 'admin' && t === 'prod' && S.adm.prod == null) loadAdmProd();
-  if (r === 'admin' && t === 'zones' && S.adm.zVilles == null) loadZones();
+  if (r === 'client'){
+    if (t === 'compte' && (force || S.mesDemandes == null)) rest('demandes_produits?select=*&order=created_at.desc').then(function(x){ S.mesDemandes = x || []; render(); }).catch(function(e){ toast(e.message, 'err'); });
+    if (t === 'panier') ensureCreneaux().then(loadCart).then(loadAddrs);
+    if (t === 'commandes') loadOrders();
+  }
+  if (r === 'fournisseur'){
+    if (t === 'produits' && S.fourn && (force || S.mesProduits == null)) loadMesProduits();
+    if (t === 'commandes' && S.fourn) loadSupOrders();
+    if (t === 'profil' && S.fourn) loadVersements();
+  }
+  if (r === 'livreur'){ if (t === 'courses') loadLivOrders(); if (t === 'caisse') loadCaisse(); }
+  if (r === 'admin'){
+    if (t === 'cmd') loadAdmOrders();
+    if (t === 'fourn' && (force || S.adm.fourn == null)) loadAdmFourn();
+    if (t === 'prod'){ var ps = S.adm.pSub || 'prod'; if (ps === 'prod' && S.adm.prod == null) loadAdmProd(); if (ps === 'cats' && S.adm.cats == null) loadAdmCats(); if (ps === 'dem' && S.adm.dem == null) loadAdmDem(); }
+    if (t === 'liv'){ var ls = S.adm.livSub || 'zones'; if (ls === 'zones' && S.adm.zVilles == null) loadZones(); if (ls === 'livreurs' && S.adm.livreurs == null) rest('profiles?role=eq.livreur&select=id,nom,postnom,prenom,telephone').then(function(x){ S.adm.livreurs = x || []; render(); }).catch(function(e){ toast(e.message, 'err'); }); }
+    if (t === 'fin') loadFin();
+  }
 }
 function loadMesProduits(){
   return rest(PSEL + '&fournisseur_id=eq.' + uid() + '&order=created_at.desc').then(function(x){ S.mesProduits = x || []; render(); }).catch(function(e){ S.mesProduits = []; render(); toast(e.message, 'err'); });
@@ -786,11 +829,11 @@ function loadZones(){
 function setBusy(b){ S.busy = b; render(); }
 function readForm(){ return S.draft; }
 var A = {
-  go: function(el){ S.screen = el.dataset.v; S.error = ''; if (S.screen === 'signup'){ if (!S.draft.role) S.draft.role = 'client'; render(); geoDefaults('g_').then(render).catch(function(){}); return; } render(); },
+  go: function(el){ S.screen = el.dataset.v; S.error = ''; S.sheet = null; if (S.screen === 'signup'){ if (!S.draft.role) S.draft.role = 'client'; render(); geoDefaults('g_').then(render).catch(function(){}); return; } render(); },
   guest: function(){ S.screen = 'guest'; S.error = ''; S.cat = { items: null, q: '', catId: null, subId: null, token: S.cat.token || 0 }; render(); Promise.all([ensureCats()]).then(function(){ render(); return loadCatalogue(); }).catch(function(e){ toast(e.message, 'err'); }); },
   role: function(el){ S.draft.role = el.dataset.v; render(); },
   showpw: function(el){ var i = document.getElementById(el.dataset.v); i.type = i.type === 'password' ? 'text' : 'password'; el.textContent = i.type === 'password' ? 'Voir' : 'Masquer'; },
-  tab: function(el){ S.tab = el.dataset.v; S.sheet = null; render(); window.scrollTo(0, 0); onTab(); },
+  tab: function(el){ S.tab = el.dataset.v; S.sheet = null; S.confirm = null; render(); window.scrollTo(0, 0); onTab(true); },
   logout: function(){ signOut(); },
   cat: function(el){ S.cat.catId = el.dataset.v ? Number(el.dataset.v) : null; S.cat.subId = null; render(); loadCatalogue(); },
   sub: function(el){ var id = Number(el.dataset.v); S.cat.subId = S.cat.subId === id ? null : id; render(); loadCatalogue(); },
@@ -962,6 +1005,513 @@ function saveProduct(){
   }).catch(function(e){ f.saving = false; f.err = e.message; render(); });
 }
 
+/* ====================== COMMANDES, LIVRAISON, ARGENT ====================== */
+var STAT = { en_attente: ['En attente', 'wait'], confirmee: ['Confirmée', 'ok'], en_preparation: ['En préparation', 'ok'], prete: ['Prête', 'ok'], en_livraison: ['En livraison', 'ok'], livree: ['Livrée', 'ok'], annulee: ['Annulée', 'bad'] };
+function statBadge(s){ var x = STAT[s] || [s, '']; return '<span class="badge ' + x[1] + '">' + x[0] + '</span>'; }
+function fmtDT(iso){ try { return new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch(e){ return ''; } }
+function fmtD(d){ try { return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' }); } catch(e){ return d || ''; } }
+function todayStr(){ var d = new Date(), z = new Date(d.getTime() + d.getTimezoneOffset() * 60000 + 3600000); return z.getFullYear() + '-' + String(z.getMonth() + 1).padStart(2, '0') + '-' + String(z.getDate()).padStart(2, '0'); }
+function crenLabel(id){ var c = (S.creneaux || []).filter(function(x){ return x.id === id; })[0]; return c ? c.libelle : ''; }
+function fullName(p){ p = p || {}; return [p.prenom, p.postnom, p.nom].filter(Boolean).join(' '); }
+function sumBy(rows, devKey, valKey){ var o = {}; rows.forEach(function(r){ o[r[devKey]] = (o[r[devKey]] || 0) + Number(r[valKey]); }); return o; }
+function sumTxt(o){ var k = Object.keys(o); return k.length ? k.map(function(d){ return money(o[d], d); }).join(' + ') : money(0, 'USD'); }
+function bellHtml(){
+  var n = (S.notifs || []).filter(function(x){ return !x.lu; }).length;
+  return '<button class="bell" id="bell" data-act="notifs" aria-label="Notifications' + (n ? ' (' + n + ' non lues)' : '') + '">' + ico('bell') + (n ? '<span class="bdg">' + (n > 9 ? '9+' : n) + '</span>' : '') + '</button>';
+}
+function updateBell(){ var b = document.getElementById('bell'); if (b) b.outerHTML = bellHtml(); }
+function badgeFor(id){
+  var r = S.profile && S.profile.role, n = 0;
+  if (r === 'client' && id === 'panier') n = (S.cart || []).length;
+  if (r === 'fournisseur' && id === 'commandes') n = (S.supOrders || []).filter(function(o){ return o.statut === 'en_attente'; }).length;
+  if (r === 'livreur' && id === 'courses') n = (S.livOrders || []).filter(function(o){ return o.statut === 'prete' || o.statut === 'en_livraison'; }).length;
+  if (r === 'admin' && id === 'cmd') n = (S.adm.orders || []).filter(function(o){ return o.statut === 'en_attente'; }).length;
+  return n ? '<span class="bdg">' + (n > 9 ? '9+' : n) + '</span>' : '';
+}
+function ensureCreneaux(){
+  if (S.creneaux) return Promise.resolve(S.creneaux);
+  return rest('creneaux?select=*&order=heure_debut').then(function(r){ S.creneaux = r || []; return S.creneaux; });
+}
+function ensureFpub(){
+  if (Object.keys(S.fpub).length) return Promise.resolve();
+  return rest('fournisseurs_publics?select=user_id,nom_commerce').then(function(r){ (r || []).forEach(function(f){ S.fpub[f.user_id] = f; }); });
+}
+function mergeOrder(r){
+  [S.orders, S.supOrders, S.livOrders, S.adm.orders].forEach(function(l){
+    if (!l) return;
+    for (var i = 0; i < l.length; i++) if (l[i].id === r.id){ var lines = l[i].commande_lignes; l[i] = Object.assign({}, l[i], r); if (lines && !r.commande_lignes) l[i].commande_lignes = lines; }
+  });
+}
+function linesHtml(o){
+  return '<div class="ln">' + (o.commande_lignes || []).map(function(l){ return '<div class="kvl"><span>' + esc(l.nom_produit) + ' × ' + qty(l.quantite) + ' ' + esc(l.unite || '') + '</span><span>' + money(l.total, o.devise) + '</span></div>'; }).join('') +
+    '<div class="kvl"><span class="muted">Sous-total</span><span>' + money(o.sous_total, o.devise) + '</span></div><div class="kvl"><span class="muted">Livraison</span><span>' + money(o.frais_livraison, o.devise) + '</span></div>' +
+    '<div class="kvl"><b>Total à payer à la livraison</b><b>' + money(o.total, o.devise) + '</b></div></div>';
+}
+function deliveryHtml(o, withClient){
+  return '<div class="small">' + (withClient ? '<b>' + esc(o.client_nom || '') + '</b> · <a href="tel:+' + esc(o.client_telephone || '') + '">' + esc(phoneShow(o.client_telephone)) + '</a><br>' : '') +
+    esc(o.adresse_texte || '') + '<br>Livraison : ' + esc(fmtD(o.date_livraison)) + (o.creneau_id ? ' · ' + esc(crenLabel(o.creneau_id)) : '') + (o.note_client ? '<br>Note : ' + esc(o.note_client) : '') + '</div>';
+}
+function cmdActions(o, role){
+  var h = '';
+  function b(st, label, cls){ return '<button class="btn sm ' + (cls || '') + '" data-act="cmdstat" data-v="' + o.id + '|' + st + '">' + label + '</button>'; }
+  if (role === 'fournisseur'){
+    if (o.statut === 'en_attente') h += b('confirmee', 'Confirmer');
+    if (o.statut === 'confirmee') h += b('en_preparation', 'Passer en préparation');
+    if (o.statut === 'en_preparation') h += b('prete', 'Marquer prête');
+    if (o.statut === 'en_attente' || o.statut === 'confirmee') h = '<div class="field" style="width:100%"><input type="text" id="cm' + o.id + '" placeholder="Motif si vous refusez ou annulez"></div>' + h + b('annulee', 'Refuser / annuler', 'danger');
+  }
+  if (role === 'livreur'){
+    if (o.statut === 'prete') h += b('en_livraison', 'Démarrer la livraison');
+    if (o.statut === 'en_livraison'){
+      h += S.confirm === 'liv' + o.id ? '<button class="btn sm orange" data-act="cmdstat" data-v="' + o.id + '|livree">Oui, j\'ai encaissé ' + money(o.total, o.devise) + '</button><button class="btn sm sec" data-act="askconf" data-v="">Non</button>'
+                                      : '<button class="btn sm" data-act="askconf" data-v="liv' + o.id + '">Livrée, espèces encaissées</button>';
+    }
+  }
+  if (role === 'client' && o.statut === 'en_attente'){
+    h += S.confirm === 'cc' + o.id ? '<button class="btn sm danger" data-act="cmdstat" data-v="' + o.id + '|annulee">Confirmer l\'annulation</button><button class="btn sm sec" data-act="askconf" data-v="">Garder</button>'
+                                   : '<button class="btn sm danger" data-act="askconf" data-v="cc' + o.id + '">Annuler la commande</button>';
+  }
+  return h ? '<div class="acts">' + h + '</div>' : '';
+}
+
+/* ---------- Client : panier ---------- */
+function loadCart(){
+  return rest('panier_items?select=quantite,produit_id,produits(id,nom,prix,devise,quantite_min,stock,disponible,statut,fournisseur_id,unites(libelle),produit_medias(id,type,chemin,ordre,statut))&order=created_at').then(function(r){
+    S.cart = r || []; return ensureFpub();
+  }).then(function(){ render(); }).catch(function(e){ S.cart = S.cart || []; render(); toast(e.message, 'err'); });
+}
+function ensureCartLoaded(){ return S.cart ? Promise.resolve() : loadCart(); }
+function loadAddrs(){
+  return rest('adresses?select=*&order=created_at').then(function(r){
+    S.addrs = r || [];
+    if (!S.draft.co_addr) S.draft.co_addr = S.addrs.length ? (S.addrs.filter(function(a){ return a.par_defaut; })[0] || S.addrs[0]).id : 'new';
+    if (!S.draft.co_date) S.draft.co_date = todayStr();
+    if (S.draft.co_addr === 'new') return geoDefaults('na_');
+  }).then(function(){ return prepZone(); }).then(function(){ render(); }).catch(function(e){ S.addrs = S.addrs || []; render(); toast(e.message, 'err'); });
+}
+function zoneKeys(){
+  var d = S.draft, a;
+  if (d.co_addr === 'new') return { prov: d.na_prov, ville: d.na_ville, com: d.na_commune, isNew: true };
+  a = (S.addrs || []).filter(function(x){ return x.id === d.co_addr; })[0];
+  return a ? { prov: a.province_id, ville: a.ville_id, com: a.commune_id, isNew: false } : null;
+}
+function prepZone(){
+  var k = zoneKeys(); if (!k || !k.ville) return Promise.resolve();
+  delete S.geo.communes[k.ville]; delete S.geo.villes[k.prov];
+  return Promise.all([ensureVilles(k.prov), ensureCommunes(k.ville)]);
+}
+function zoneInfo(){
+  var k = zoneKeys(); if (!k || !k.ville) return { st: 'none' };
+  var cs = S.geo.communes[k.ville], vs = S.geo.villes[k.prov];
+  if (k.com){
+    if (!cs) return { st: 'load' };
+    var c = cs.filter(function(x){ return String(x.id) === String(k.com); })[0];
+    return c ? { st: c.livraison_active ? 'ok' : 'off', usd: Number(c.frais_usd), cdf: Number(c.frais_cdf), nom: c.nom } : { st: 'load' };
+  }
+  if (cs && cs.length && k.isNew) return { st: 'none' };
+  if (!vs) return { st: 'load' };
+  var v = vs.filter(function(x){ return String(x.id) === String(k.ville); })[0];
+  return v ? { st: v.livraison_active ? 'ok' : 'off', usd: Number(v.frais_usd), cdf: Number(v.frais_cdf), nom: v.nom } : { st: 'load' };
+}
+function cartView(){
+  var c = S.cart, d = S.draft;
+  if (c == null || S.addrs == null) return '<div class="spin"><i></i></div>';
+  if (!c.length) return '<div class="empty"><p>Votre panier est vide.</p><button class="btn sm" data-act="tab" data-v="accueil">Voir les produits</button></div>';
+  var bad = false, groups = {}, items = '';
+  c.forEach(function(it){
+    var p = it.produits;
+    if (!p || p.statut !== 'publie' || p.disponible === false){ bad = true; items += '<div class="card"><div class="item"><div class="meta"><span class="pn">Produit indisponible</span><span class="small muted">Ce produit n\'est plus en vente.</span></div></div><div class="acts"><button class="btn sm danger" data-act="cartdel" data-v="' + it.produit_id + '">Retirer</button></div></div>'; return; }
+    var k = p.fournisseur_id + '|' + p.devise; if (!groups[k]) groups[k] = { fid: p.fournisseur_id, dev: p.devise, sous: 0 };
+    groups[k].sous += Number(p.prix) * Number(it.quantite);
+    var u = esc((p.unites || {}).libelle || ''), f = S.fpub[p.fournisseur_id];
+    items += '<div class="card"><div class="item">' + phHtml(p, true) + '<div class="meta"><span class="pn">' + esc(p.nom) + '</span><span class="pp">' + money(p.prix, p.devise) + ' / ' + u + '</span><span class="ps">' + esc(f ? f.nom_commerce : '') + '</span>' +
+      '<div class="qs"><button type="button" data-act="cartq" data-v="' + it.produit_id + '|-1" aria-label="Moins">−</button><b>' + qty(it.quantite) + ' ' + u + '</b><button type="button" data-act="cartq" data-v="' + it.produit_id + '|1" aria-label="Plus">+</button></div>' +
+      '<span class="small">Sous-total : <b>' + money(Number(p.prix) * Number(it.quantite), p.devise) + '</b></span></div></div><div class="acts"><button class="btn sm danger" data-act="cartdel" data-v="' + it.produit_id + '">Retirer</button></div></div>';
+  });
+  var z = zoneInfo(), h = '<h2>Mon panier</h2>' + items;
+  var addrOpts = (S.addrs || []).map(function(a){ return '<option value="' + a.id + '"' + (d.co_addr === a.id ? ' selected' : '') + '>' + esc((a.libelle || 'Adresse') + ' : ' + [a.avenue, a.quartier].filter(Boolean).join(', ')) + '</option>'; }).join('') + '<option value="new"' + (d.co_addr === 'new' ? ' selected' : '') + '>+ Nouvelle adresse</option>';
+  var cren = (S.creneaux || []).map(function(x){ return '<option value="' + x.id + '"' + (String(d.co_cren) === String(x.id) ? ' selected' : '') + '>' + esc(x.libelle) + '</option>'; }).join('');
+  var zmsg = z.st === 'ok' ? '<div class="note ok small">Livraison disponible à ' + esc(z.nom) + '. Frais par commande : ' + money(z.usd, 'USD') + ' ou ' + money(z.cdf, 'CDF') + ' selon la devise du produit.</div>'
+           : z.st === 'off' ? '<div class="err">La livraison n\'est pas encore disponible dans cette zone (' + esc(z.nom) + ').</div>'
+           : z.st === 'load' ? '<div class="note info small">Vérification de la zone de livraison…</div>' : '<div class="note warn small">Choisissez une adresse dans une zone de livraison.</div>';
+  var recap = Object.keys(groups).map(function(k){ var g = groups[k], fee = z.st === 'ok' ? (g.dev === 'USD' ? z.usd : z.cdf) : 0, f = S.fpub[g.fid];
+    return '<div class="kvl"><span>' + esc(f ? f.nom_commerce : 'Vendeur') + '<br><span class="small muted">' + money(g.sous, g.dev) + ' + livraison ' + money(fee, g.dev) + '</span></span><b>' + money(g.sous + fee, g.dev) + '</b></div>'; }).join('');
+  h += '<form class="card" data-form="checkout" novalidate><h3>Livraison</h3>' +
+    '<div class="field"><label for="co_addr">Adresse de livraison</label><select id="co_addr" data-k="co_addr" data-addrchg="1">' + addrOpts + '</select></div>' +
+    (d.co_addr === 'new' ? geoHtml('na_', true) + fieldHtml('na_quartier', 'Quartier', 'text', '') + fieldHtml('na_avenue', 'Avenue et numéro', 'text', '') + fieldHtml('na_ref', 'Repère pour le livreur (facultatif)', 'text', 'Ex : en face de la pharmacie') : '') +
+    zmsg +
+    '<div class="row2"><div class="field"><label for="co_date">Jour</label><input id="co_date" type="date" data-k="co_date" min="' + todayStr() + '" value="' + esc(d.co_date || todayStr()) + '"></div>' +
+    '<div class="field"><label for="co_cren">Créneau</label><select id="co_cren" data-k="co_cren"><option value="">Choisir</option>' + cren + '</select></div></div>' +
+    fieldHtml('co_note', 'Précisions pour la commande (facultatif)', 'textarea', '') +
+    '<h3>Paiement</h3><div class="note info small">Paiement à la livraison, en espèces, au livreur. Aucun paiement en ligne.</div>' +
+    '<h3>Récapitulatif</h3>' + recap + (Object.keys(groups).length > 1 ? '<p class="hint">Une commande séparée est créée par vendeur et par devise. Chacune est livrée avec ses propres frais.</p>' : '') +
+    '<button class="btn orange" type="submit"' + (S.busy || bad || z.st !== 'ok' ? ' disabled' : '') + '>' + (S.busy ? 'Envoi…' : 'Confirmer la commande') + '</button></form>';
+  return h;
+}
+
+/* ---------- Client : commandes ---------- */
+function loadOrders(){
+  return Promise.all([rest('commandes?select=*,commande_lignes(*)&client_id=eq.' + uid() + '&order=created_at.desc&limit=50'), ensureFpub(), ensureCreneaux()]).then(function(r){ S.orders = r[0] || []; render(); })
+    .catch(function(e){ S.orders = S.orders || []; render(); toast(e.message, 'err'); });
+}
+function clientOrders(){
+  var l = S.orders;
+  if (l == null) return '<div class="spin"><i></i></div>';
+  if (!l.length) return '<div class="empty"><p>Vous n\'avez pas encore commandé.</p><button class="btn sm" data-act="tab" data-v="accueil">Voir les produits</button></div>';
+  return '<div style="display:flex;justify-content:space-between;align-items:center"><h2>Mes commandes</h2><button class="btn sm sec" data-act="refresh">Actualiser</button></div>' + l.map(function(o){
+    var f = S.fpub[o.fournisseur_id], hist = S.hist && S.hist[o.id];
+    return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(o.numero) + '</b>' + statBadge(o.statut) + '</div>' +
+      '<div class="small muted">' + esc(fmtDT(o.created_at)) + (f ? ' · ' + esc(f.nom_commerce) : '') + '</div>' + linesHtml(o) + deliveryHtml(o, false) +
+      (o.statut === 'annulee' && o.motif_annulation ? '<div class="small" style="color:var(--danger)">Motif : ' + esc(o.motif_annulation) + '</div>' : '') +
+      (hist ? '<div class="tl">' + hist.map(function(x){ return '<div><b>' + (STAT[x.statut] || [x.statut])[0] + '</b> <span class="muted">' + esc(fmtDT(x.created_at)) + '</span></div>'; }).join('') + '</div>' : '') +
+      '<div class="acts">' + (hist ? '' : '<button class="btn sm sec" data-act="hist" data-v="' + o.id + '">Suivi</button>') + '</div>' + cmdActions(o, 'client') + '</div>';
+  }).join('');
+}
+
+/* ---------- Fournisseur : commandes ---------- */
+function loadSupOrders(){
+  return Promise.all([rest('commandes?select=*,commande_lignes(*)&fournisseur_id=eq.' + uid() + '&order=created_at.desc&limit=80'), ensureCreneaux()]).then(function(r){ S.supOrders = r[0] || []; render(); })
+    .catch(function(e){ S.supOrders = S.supOrders || []; render(); toast(e.message, 'err'); });
+}
+function supOrders(){
+  var l = S.supOrders, fl = S.supFilter || 'todo', h = fournBanner();
+  var chips = [['todo', 'À traiter'], ['route', 'Prêtes et en route'], ['done', 'Terminées']].map(function(x){ return '<button class="chip' + (fl === x[0] ? ' on' : '') + '" data-act="supfilter" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('');
+  h += '<div class="chips">' + chips + '</div>';
+  if (l == null) return h + '<div class="spin"><i></i></div>';
+  var set = { todo: ['en_attente', 'confirmee', 'en_preparation'], route: ['prete', 'en_livraison'], done: ['livree', 'annulee'] }[fl];
+  l = l.filter(function(o){ return set.indexOf(o.statut) > -1; });
+  if (!l.length) return h + '<div class="empty"><p>Aucune commande dans cette liste.</p></div>';
+  return h + l.map(function(o){
+    return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(o.numero) + '</b>' + statBadge(o.statut) + '</div><div class="small muted">' + esc(fmtDT(o.created_at)) + '</div>' +
+      linesHtml(o) + deliveryHtml(o, true) + '<div class="small">Après commission BISO MARKET : <b>' + money(Number(o.sous_total) - Number(o.commission_montant), o.devise) + '</b></div>' +
+      (o.statut === 'annulee' && o.motif_annulation ? '<div class="small" style="color:var(--danger)">Motif : ' + esc(o.motif_annulation) + '</div>' : '') + cmdActions(o, 'fournisseur') + '</div>';
+  }).join('');
+}
+function loadVersements(){
+  return rest('versements_fournisseurs?select=*,commandes(numero)&order=created_at.desc&limit=100').then(function(r){ S.versements = r || []; render(); }).catch(function(e){ S.versements = []; render(); toast(e.message, 'err'); });
+}
+function versementsCard(){
+  var v = S.versements; if (v == null) return '<div class="card"><h3>Mes versements</h3><div class="spin"><i></i></div></div>';
+  var due = v.filter(function(x){ return !x.verse; });
+  return '<div class="card"><h3>Mes versements</h3><div class="kvl"><span>À recevoir de BISO MARKET</span><b>' + sumTxt(sumBy(due, 'devise', 'montant_du')) + '</b></div>' +
+    '<p class="hint">Montant des commandes livrées, commission déduite. BISO MARKET vous verse ces montants après encaissement auprès des livreurs.</p>' +
+    v.slice(0, 15).map(function(x){ return '<div class="kvl"><span>' + esc((x.commandes || {}).numero || '') + '</span><span>' + money(x.montant_du, x.devise) + ' <span class="badge ' + (x.verse ? 'ok' : 'wait') + '">' + (x.verse ? 'Versé' : 'À verser') + '</span></span></div>'; }).join('') + '</div>';
+}
+
+/* ---------- Livreur ---------- */
+function loadLivOrders(){
+  return Promise.all([rest('commandes?select=*,commande_lignes(*)&livreur_id=eq.' + uid() + '&statut=in.(confirmee,en_preparation,prete,en_livraison)&order=date_livraison'), ensureCreneaux()]).then(function(r){ S.livOrders = r[0] || []; render(); })
+    .catch(function(e){ S.livOrders = S.livOrders || []; render(); toast(e.message, 'err'); });
+}
+function livCourses(){
+  var l = S.livOrders;
+  if (l == null) return '<div class="spin"><i></i></div>';
+  var now = l.filter(function(o){ return o.statut === 'prete' || o.statut === 'en_livraison'; }), soon = l.filter(function(o){ return o.statut === 'confirmee' || o.statut === 'en_preparation'; });
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center"><h2>Mes courses</h2><button class="btn sm sec" data-act="refresh">Actualiser</button></div>';
+  if (!l.length) return h + '<div class="empty"><p>Aucune course attribuée pour le moment.</p></div>';
+  function card(o){ return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(o.numero) + '</b>' + statBadge(o.statut) + '</div>' + deliveryHtml(o, true) +
+    '<div class="kvl"><b>À encaisser (espèces)</b><b>' + money(o.total, o.devise) + '</b></div>' + cmdActions(o, 'livreur') + '</div>'; }
+  if (now.length) h += '<h3>À livrer</h3>' + now.map(card).join('');
+  if (soon.length) h += '<h3>À venir (pas encore prêtes)</h3>' + soon.map(card).join('');
+  return h;
+}
+function loadCaisse(){
+  return rest('caisse_livreur?select=*,commandes(numero)&order=created_at.desc&limit=100').then(function(r){ S.caisse = r || []; render(); }).catch(function(e){ S.caisse = []; render(); toast(e.message, 'err'); });
+}
+function livCaisse(){
+  var c = S.caisse; if (c == null) return '<div class="spin"><i></i></div>';
+  var due = c.filter(function(x){ return !x.remis; });
+  return '<h2>Ma caisse</h2><div class="card"><div class="kvl"><span>À remettre à BISO MARKET</span><b>' + sumTxt(sumBy(due, 'devise', 'montant')) + '</b></div>' +
+    '<p class="hint">Espèces encaissées auprès des clients. Remettez-les à l\'administration, qui les marquera comme remises.</p></div>' +
+    (c.length ? '<div class="card">' + c.map(function(x){ return '<div class="kvl"><span>' + esc((x.commandes || {}).numero || '') + '<br><span class="small muted">' + esc(fmtDT(x.created_at)) + '</span></span><span>' + money(x.montant, x.devise) + ' <span class="badge ' + (x.remis ? 'ok' : 'wait') + '">' + (x.remis ? 'Remis' : 'À remettre') + '</span></span></div>'; }).join('') + '</div>' : '<div class="empty"><p>Aucune livraison encaissée pour le moment.</p></div>');
+}
+
+/* ---------- Notifications ---------- */
+function loadNotifs(){ return rest('notifications?select=*&order=created_at.desc&limit=30').then(function(x){ S.notifs = x || []; }); }
+function notifsSheet(){
+  var l = S.notifs || [], seen = S.nNew || {};
+  return '<div class="sh-h"><h2>Notifications</h2><button class="x" data-act="close" aria-label="Fermer">×</button></div>' +
+    (l.length ? l.map(function(n){ return '<button class="card" style="text-align:left;' + (seen[n.id] ? 'border-color:var(--orange)' : '') + '" data-act="notif" data-v="' + esc(n.lien || '') + '"><b>' + esc(n.titre) + '</b><span>' + esc(n.message || '') + '</span><span class="small muted">' + esc(fmtDT(n.created_at)) + '</span></button>'; }).join('')
+      : '<div class="empty"><p>Aucune notification.</p></div>') +
+    '<p class="hint">Ces notifications s\'affichent dans l\'application. Les notifications sur l\'écran verrouillé et les SMS ne sont pas encore actifs.</p>';
+}
+function successSheet(){
+  var l = S.success || [];
+  return '<div class="sh-h"><h2>Commande enregistrée</h2><button class="x" data-act="close" aria-label="Fermer">×</button></div>' +
+    '<div class="note ok">Merci ! ' + (l.length > 1 ? 'Vos commandes ont été envoyées aux vendeurs.' : 'Votre commande a été envoyée au vendeur.') + ' Vous paierez en espèces à la livraison.</div>' +
+    l.map(function(x){ return '<div class="kvl"><span>Numéro de commande</span><b>' + esc(x.o_numero) + '</b></div>'; }).join('') +
+    '<button class="btn" data-act="gotoOrders">Suivre mes commandes</button>';
+}
+
+/* ---------- Administration : commandes ---------- */
+function loadAdmOrders(){
+  return Promise.all([
+    rest('commandes?select=*,commande_lignes(*)&order=created_at.desc&limit=150'),
+    rest('profiles?role=eq.livreur&select=id,nom,postnom,prenom,telephone'),
+    rest('fournisseurs?select=user_id,nom_commerce'), ensureCreneaux()
+  ]).then(function(r){ S.adm.orders = r[0] || []; S.adm.livreurs = r[1] || []; S.adm.fmap = {}; (r[2] || []).forEach(function(f){ S.adm.fmap[f.user_id] = f.nom_commerce; }); render(); })
+    .catch(function(e){ S.adm.orders = S.adm.orders || []; render(); toast(e.message, 'err'); });
+}
+function admCmd(){
+  var l = S.adm.orders, fl = S.adm.oFilter || 'act';
+  var chips = [['act', 'En cours'], ['livree', 'Livrées'], ['annulee', 'Annulées'], ['all', 'Toutes']].map(function(x){ return '<button class="chip' + (fl === x[0] ? ' on' : '') + '" data-act="ofilter" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('');
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center"><h2>Commandes</h2><button class="btn sm sec" data-act="refresh">Actualiser</button></div><div class="chips">' + chips + '</div>';
+  if (l == null) return h + '<div class="spin"><i></i></div>';
+  l = l.filter(function(o){ return fl === 'all' || (fl === 'act' ? (o.statut !== 'livree' && o.statut !== 'annulee') : o.statut === fl); });
+  if (!l.length) return h + '<div class="empty"><p>Aucune commande dans cette liste.</p></div>';
+  var lv = S.adm.livreurs || [], fm = S.adm.fmap || {};
+  return h + l.map(function(o){
+    var cur = lv.filter(function(x){ return x.id === o.livreur_id; })[0], open = o.statut !== 'livree' && o.statut !== 'annulee';
+    return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(o.numero) + '</b>' + statBadge(o.statut) + '</div>' +
+      '<div class="small muted">' + esc(fmtDT(o.created_at)) + ' · Vendeur : ' + esc(fm[o.fournisseur_id] || '') + '</div>' + linesHtml(o) + deliveryHtml(o, true) +
+      '<div class="small">Commission : <b>' + money(o.commission_montant, o.devise) + '</b> · Livreur : <b>' + esc(cur ? fullName(cur) : 'non attribué') + '</b></div>' +
+      (o.statut === 'annulee' && o.motif_annulation ? '<div class="small" style="color:var(--danger)">Motif : ' + esc(o.motif_annulation) + '</div>' : '') +
+      (open ? '<div class="row2"><div class="field"><label for="as' + o.id + '">Livreur</label><select id="as' + o.id + '"><option value="">Choisir</option>' + lv.map(function(x){ return '<option value="' + x.id + '"' + (x.id === o.livreur_id ? ' selected' : '') + '>' + esc(fullName(x)) + '</option>'; }).join('') + '</select></div><div class="field" style="justify-content:flex-end"><button class="btn sm" data-act="assign" data-v="' + o.id + '">Attribuer</button></div></div>' +
+        '<div class="field"><input type="text" id="cm' + o.id + '" placeholder="Motif d\'annulation"></div><div class="acts"><button class="btn sm danger" data-act="cmdstat" data-v="' + o.id + '|annulee">Annuler la commande</button></div>' : '') + '</div>';
+  }).join('');
+}
+
+/* ---------- Administration : livraison (zones et livreurs) ---------- */
+function admLiv(){
+  var sub = S.adm.livSub || 'zones';
+  var chips = '<div class="chips"><button class="chip' + (sub === 'zones' ? ' on' : '') + '" data-act="livsub" data-v="zones">Zones de livraison</button><button class="chip' + (sub === 'livreurs' ? ' on' : '') + '" data-act="livsub" data-v="livreurs">Livreurs</button></div>';
+  return chips + (sub === 'zones' ? admZones() : admLivreurs());
+}
+function admLivreurs(){
+  var l = S.adm.livreurs;
+  var h = '<form class="card" data-form="addlivreur" novalidate><h3>Ajouter un livreur</h3><p class="hint">La personne doit d\'abord créer un compte client dans l\'application. Entrez ensuite son numéro.</p>' +
+    fieldHtml('lv_phone', 'Numéro de téléphone', 'tel', '0812345678', { attrs: 'inputmode="tel"' }) + fieldHtml('lv_veh', 'Moyen de transport (facultatif)', 'text', 'Ex : moto') + '<button class="btn sm" type="submit">Nommer livreur</button></form>';
+  if (l == null) return h + '<div class="spin"><i></i></div>';
+  return h + '<div class="card"><h3>Livreurs (' + l.length + ')</h3>' + (l.length ? l.map(function(x){ return '<div class="kvl"><span>' + esc(fullName(x)) + '</span><a href="tel:+' + esc(x.telephone) + '">' + esc(phoneShow(x.telephone)) + '</a></div>'; }).join('') : '<p class="muted small">Aucun livreur pour le moment.</p>') + '</div>';
+}
+
+/* ---------- Administration : produits, catégories, demandes ---------- */
+function admProdWrap(){
+  var sub = S.adm.pSub || 'prod';
+  var chips = '<div class="chips">' + [['prod', 'Produits'], ['cats', 'Catégories'], ['dem', 'Demandes clients']].map(function(x){ return '<button class="chip' + (sub === x[0] ? ' on' : '') + '" data-act="psub" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+  return chips + (sub === 'cats' ? admCats() : sub === 'dem' ? admDem() : admProd());
+}
+function loadAdmCats(){ return rest('categories?select=*&order=ordre,nom').then(function(x){ S.adm.cats = x || []; render(); }).catch(function(e){ S.adm.cats = []; render(); toast(e.message, 'err'); }); }
+function admCats(){
+  var l = S.adm.cats; if (l == null) return '<div class="spin"><i></i></div>';
+  var tops = l.filter(function(c){ return !c.parent_id; });
+  var h = '<div class="note info small">Une catégorie désactivée disparaît du catalogue. Le pourcentage de commission d\'une catégorie remplace le pourcentage général.</div>';
+  function row(c, ind){
+    return '<div class="zr"' + (ind ? ' style="padding-left:14px"' : '') + '><div><b>' + esc(c.nom) + '</b>' + (c.sensible ? ' <span class="badge bad">Sensible</span>' : '') + '</div>' +
+      '<label class="check"><input type="checkbox" id="ca' + c.id + '"' + (c.actif ? ' checked' : '') + '><span>Active (visible dans le catalogue)</span></label>' +
+      '<div class="row3" style="grid-template-columns:1fr auto"><div class="field"><label for="cp' + c.id + '">Commission (%)</label><input type="number" inputmode="decimal" min="0" max="100" step="any" id="cp' + c.id + '" value="' + esc(c.commission_pct == null ? '' : c.commission_pct) + '" placeholder="Taux général"></div><button class="btn sm" data-act="catsave" data-v="' + c.id + '">OK</button></div></div>';
+  }
+  h += '<div class="card">' + tops.map(function(t){ return row(t, false) + l.filter(function(c){ return c.parent_id === t.id; }).map(function(c){ return row(c, true); }).join(''); }).join('') + '</div>';
+  h += '<form class="card" data-form="addcat" novalidate><h3>Ajouter une catégorie</h3>' + fieldHtml('c_nom', 'Nom', 'text', '') +
+    '<div class="field"><label for="c_par">Dans</label><select id="c_par" data-k="c_par"><option value="">Catégorie principale</option>' + tops.map(function(t){ return '<option value="' + t.id + '">' + esc(t.nom) + '</option>'; }).join('') + '</select></div><button class="btn sm" type="submit">Ajouter</button></form>';
+  return h;
+}
+function loadAdmDem(){ return rest('demandes_produits?select=*,profiles(nom,postnom,prenom,telephone)&order=created_at.desc&limit=100').then(function(x){ S.adm.dem = x || []; render(); }).catch(function(e){ S.adm.dem = []; render(); toast(e.message, 'err'); }); }
+function admDem(){
+  var l = S.adm.dem; if (l == null) return '<div class="spin"><i></i></div>';
+  if (!l.length) return '<div class="empty"><p>Aucune demande de produit.</p></div>';
+  return l.map(function(x){
+    var p = x.profiles || {};
+    return '<div class="card"><div><b>' + esc(x.nom_produit) + '</b>' + (x.quantite_souhaitee ? ' · ' + esc(x.quantite_souhaitee) : '') + '</div><div class="small muted">' + esc(fullName(p)) + ' · <a href="tel:+' + esc(p.telephone || '') + '">' + esc(phoneShow(p.telephone)) + '</a> · ' + esc(fmtDT(x.created_at)) + '</div>' +
+      (x.description ? '<div class="small">' + esc(x.description) + '</div>' : '') +
+      '<div class="row2"><div class="field"><label for="ds' + x.id + '">Statut</label><select id="ds' + x.id + '">' + [['nouvelle', 'Reçue'], ['en_cours', 'En cours'], ['satisfaite', 'Satisfaite'], ['rejetee', 'Non satisfaite']].map(function(s){ return '<option value="' + s[0] + '"' + (x.statut === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label for="dr' + x.id + '">Réponse au client</label><input type="text" id="dr' + x.id + '" value="' + esc(x.reponse || '') + '"></div></div><div class="acts"><button class="btn sm" data-act="demsave" data-v="' + x.id + '">Enregistrer</button></div></div>';
+  }).join('');
+}
+
+/* ---------- Administration : finances ---------- */
+function loadFin(){
+  return Promise.all([
+    rest('caisse_livreur?select=*,commandes(numero),profiles(nom,postnom,prenom,telephone)&order=created_at.desc&limit=300'),
+    rest('versements_fournisseurs?select=*,commandes(numero)&order=created_at.desc&limit=300'),
+    rest('fournisseurs?select=user_id,nom_commerce'),
+    rest('parametres?select=*'),
+    rest('commandes?select=devise,sous_total,commission_montant,frais_livraison,total&statut=eq.livree&limit=2000')
+  ]).then(function(r){
+    S.adm.caisses = r[0] || []; S.adm.verse = r[1] || []; S.adm.fmap = S.adm.fmap || {}; (r[2] || []).forEach(function(f){ S.adm.fmap[f.user_id] = f.nom_commerce; });
+    S.adm.params = r[3] || []; S.adm.livrees = r[4] || []; render();
+  }).catch(function(e){ S.adm.caisses = S.adm.caisses || []; S.adm.verse = S.adm.verse || []; S.adm.params = S.adm.params || []; S.adm.livrees = S.adm.livrees || []; render(); toast(e.message, 'err'); });
+}
+function admFin(){
+  var sub = S.adm.finSub || 'caisse';
+  var chips = '<div class="chips">' + [['caisse', 'Caisses livreurs'], ['verse', 'Versements vendeurs'], ['comm', 'Commissions']].map(function(x){ return '<button class="chip' + (sub === x[0] ? ' on' : '') + '" data-act="finsub" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+  if (S.adm.caisses == null) return chips + '<div class="spin"><i></i></div>';
+  var h = chips;
+  if (sub === 'caisse'){
+    var due = S.adm.caisses.filter(function(x){ return !x.remis; }), by = {};
+    due.forEach(function(x){ var k = x.livreur_id || 'none'; (by[k] = by[k] || { p: x.profiles, rows: [] }).rows.push(x); });
+    h += '<div class="card"><div class="kvl"><b>Espèces à récupérer auprès des livreurs</b><b>' + sumTxt(sumBy(due, 'devise', 'montant')) + '</b></div></div>';
+    var keys = Object.keys(by);
+    if (!keys.length) h += '<div class="empty"><p>Aucune espèce en attente de remise.</p></div>';
+    h += keys.map(function(k){ var g = by[k]; return '<div class="card"><div><b>' + esc(k === 'none' ? 'Sans livreur' : fullName(g.p)) + '</b></div><div class="small muted">' + g.rows.length + ' livraison(s) : ' + g.rows.map(function(x){ return esc((x.commandes || {}).numero || ''); }).join(', ') + '</div>' +
+      '<div class="kvl"><span>À remettre</span><b>' + sumTxt(sumBy(g.rows, 'devise', 'montant')) + '</b></div><div class="acts"><button class="btn sm" data-act="remis" data-v="' + k + '">Marquer tout remis</button></div></div>'; }).join('');
+  } else if (sub === 'verse'){
+    var vd = S.adm.verse.filter(function(x){ return !x.verse; }), vb = {};
+    vd.forEach(function(x){ (vb[x.fournisseur_id] = vb[x.fournisseur_id] || []).push(x); });
+    h += '<div class="card"><div class="kvl"><b>Total à verser aux vendeurs</b><b>' + sumTxt(sumBy(vd, 'devise', 'montant_du')) + '</b></div></div>';
+    var vk = Object.keys(vb);
+    if (!vk.length) h += '<div class="empty"><p>Aucun versement en attente.</p></div>';
+    h += vk.map(function(k){ var rows = vb[k]; return '<div class="card"><div><b>' + esc((S.adm.fmap || {})[k] || 'Vendeur') + '</b></div><div class="small muted">' + rows.length + ' commande(s) : ' + rows.map(function(x){ return esc((x.commandes || {}).numero || ''); }).join(', ') + '</div>' +
+      '<div class="kvl"><span>À verser</span><b>' + sumTxt(sumBy(rows, 'devise', 'montant_du')) + '</b></div><div class="acts"><button class="btn sm" data-act="verse" data-v="' + k + '">Marquer tout versé</button></div></div>'; }).join('');
+  } else {
+    var pct = (S.adm.params.filter(function(p){ return p.cle === 'commission_pct'; })[0] || {}).valeur || '10', lv = S.adm.livrees || [];
+    h += '<div class="card"><h3>Commission générale</h3><p class="hint">Pourcentage retenu sur le prix des produits à chaque nouvelle commande. Les commandes déjà passées gardent leur taux. Une catégorie peut avoir son propre taux (onglet Produits, Catégories).</p>' +
+      '<div class="row3" style="grid-template-columns:1fr auto"><div class="field"><label for="cpct">Commission (%)</label><input type="number" id="cpct" inputmode="decimal" min="0" max="100" step="any" value="' + esc(pct) + '"></div><button class="btn sm" data-act="pctsave">Enregistrer</button></div></div>' +
+      '<div class="card"><h3>Commandes livrées (' + lv.length + ')</h3><div class="kvl"><span>Ventes de produits</span><b>' + sumTxt(sumBy(lv, 'devise', 'sous_total')) + '</b></div><div class="kvl"><span>Commissions BISO MARKET</span><b>' + sumTxt(sumBy(lv, 'devise', 'commission_montant')) + '</b></div><div class="kvl"><span>Frais de livraison</span><b>' + sumTxt(sumBy(lv, 'devise', 'frais_livraison')) + '</b></div></div>';
+  }
+  return h;
+}
+
+/* ---------- Actions supplémentaires ---------- */
+Object.assign(A, {
+  notifs: function(){
+    S.nNew = {}; (S.notifs || []).forEach(function(n){ if (!n.lu) S.nNew[n.id] = 1; });
+    S.sheet = 'notifs'; render();
+    if (Object.keys(S.nNew).length) rest('notifications?user_id=eq.' + uid() + '&lu=eq.false', { method: 'PATCH', body: { lu: true } }).then(function(){ (S.notifs || []).forEach(function(n){ n.lu = true; }); updateBell(); }).catch(function(){});
+  },
+  notif: function(el){
+    var l = el.dataset.v || '', r = S.profile.role;
+    S.sheet = null;
+    if (l.indexOf('commande:') === 0) S.tab = r === 'client' ? 'commandes' : r === 'fournisseur' ? 'commandes' : r === 'livreur' ? 'courses' : 'cmd';
+    render(); onTab(true);
+  },
+  askconf: function(el){ S.confirm = el.dataset.v || null; render(); },
+  refresh: function(){ onTab(true); toast('Actualisé.'); },
+  gotoOrders: function(){ S.sheet = null; S.tab = 'commandes'; render(); onTab(true); },
+  hist: function(el){
+    var id = el.dataset.v;
+    rest('commande_historique?commande_id=eq.' + id + '&order=id').then(function(x){ S.hist = S.hist || {}; S.hist[id] = x || []; render(); }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  cartq: function(el){
+    var a = el.dataset.v.split('|'), it = (S.cart || []).filter(function(x){ return x.produit_id === a[0]; })[0]; if (!it || !it.produits) return;
+    var p = it.produits, nq = Number(it.quantite) + Number(a[1]);
+    if (nq < Number(p.quantite_min)){ toast('Quantité minimale : ' + qty(p.quantite_min) + ' ' + ((p.unites || {}).libelle || '') + '. Utilisez Retirer pour supprimer.', 'err'); return; }
+    if (p.stock != null && nq > Number(p.stock)){ toast('Stock disponible : ' + qty(p.stock), 'err'); return; }
+    patch('panier_items?client_id=eq.' + uid() + '&produit_id=eq.' + a[0], { quantite: nq }).then(function(){ it.quantite = nq; render(); }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  cartdel: function(el){
+    var id = el.dataset.v;
+    remove('panier_items?client_id=eq.' + uid() + '&produit_id=eq.' + id).then(function(){ S.cart = S.cart.filter(function(x){ return x.produit_id !== id; }); render(); }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  addcart: function(el){
+    var pid = el.dataset.v, inp = document.getElementById('dq'), q = Number(inp ? inp.value : 0), p = (S.cat.items || []).filter(function(x){ return x.id === pid; })[0]; if (!p) return;
+    var u = (p.unites || {}).libelle || '';
+    if (!(q > 0)){ toast('Entrez une quantité.', 'err'); return; }
+    if (q < Number(p.quantite_min)){ toast('Quantité minimale : ' + qty(p.quantite_min) + ' ' + u, 'err'); return; }
+    ensureCartLoaded().then(function(){
+      var ex = (S.cart || []).filter(function(x){ return x.produit_id === pid; })[0], nq = q + (ex ? Number(ex.quantite) : 0);
+      if (p.stock != null && nq > Number(p.stock)){ if (p.stock < Number(p.quantite_min)) throw new ApiError('Stock insuffisant.'); nq = Number(p.stock); toast('Quantité limitée au stock disponible (' + qty(nq) + ').', 'err'); }
+      return rest('panier_items?on_conflict=client_id,produit_id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=representation', body: { client_id: uid(), produit_id: pid, quantite: nq } });
+    }).then(function(){ S.sheet = null; render(); loadCart(); toast('Ajouté au panier.'); }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  cmdstat: function(el){
+    var a = el.dataset.v.split('|'), body = { statut: a[1] }, role = S.profile.role;
+    if (a[1] === 'annulee'){
+      var m = document.getElementById('cm' + a[0]), motif = m ? m.value.trim() : '';
+      if (!motif && role !== 'client'){ toast('Indiquez un motif.', 'err'); return; }
+      body.motif_annulation = motif || 'Annulée par le client';
+    }
+    S.confirm = null;
+    patch('commandes?id=eq.' + a[0], body).then(function(r){
+      mergeOrder(r); if (a[1] === 'livree') S.caisse = null; render(); toast('Commande mise à jour.');
+    }).catch(function(e){ render(); toast(e.message, 'err'); });
+  },
+  supfilter: function(el){ S.supFilter = el.dataset.v; render(); },
+  ofilter: function(el){ S.adm.oFilter = el.dataset.v; render(); },
+  assign: function(el){
+    var id = el.dataset.v, s = document.getElementById('as' + id);
+    if (!s || !s.value){ toast('Choisissez un livreur.', 'err'); return; }
+    patch('commandes?id=eq.' + id, { livreur_id: s.value }).then(function(r){ mergeOrder(r); render(); toast('Livreur attribué.'); }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  livsub: function(el){ S.adm.livSub = el.dataset.v; render(); onTab(); },
+  psub: function(el){ S.adm.pSub = el.dataset.v; render(); onTab(); },
+  finsub: function(el){ S.adm.finSub = el.dataset.v; render(); },
+  catsave: function(el){
+    var id = el.dataset.v, act = document.getElementById('ca' + id).checked, pv = document.getElementById('cp' + id).value.trim();
+    if (pv !== '' && (isNaN(Number(pv)) || Number(pv) < 0 || Number(pv) > 100)){ toast('Commission entre 0 et 100.', 'err'); return; }
+    patch('categories?id=eq.' + id, { actif: act, commission_pct: pv === '' ? null : Number(pv) }).then(function(){ S.cats = null; loadAdmCats(); toast('Catégorie enregistrée.'); }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  demsave: function(el){
+    var id = el.dataset.v;
+    patch('demandes_produits?id=eq.' + id, { statut: document.getElementById('ds' + id).value, reponse: document.getElementById('dr' + id).value.trim() || null }).then(function(){ loadAdmDem(); toast('Demande enregistrée.'); }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  remis: function(el){
+    var k = el.dataset.v, q = 'caisse_livreur?remis=eq.false&' + (k === 'none' ? 'livreur_id=is.null' : 'livreur_id=eq.' + k);
+    rest(q, { method: 'PATCH', prefer: 'return=representation', body: { remis: true, remis_le: new Date().toISOString() } }).then(function(r){
+      if (!r || !r.length) throw new ApiError('Action refusée.', 403);
+      loadFin(); toast('Caisse marquée remise.');
+    }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  verse: function(el){
+    var k = el.dataset.v;
+    rest('versements_fournisseurs?verse=eq.false&fournisseur_id=eq.' + k, { method: 'PATCH', prefer: 'return=representation', body: { verse: true, verse_le: new Date().toISOString() } }).then(function(r){
+      if (!r || !r.length) throw new ApiError('Action refusée.', 403);
+      loadFin(); toast('Versement enregistré.');
+    }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  pctsave: function(){
+    var v = document.getElementById('cpct').value.trim(), n = Number(v);
+    if (v === '' || isNaN(n) || n < 0 || n > 100){ toast('Commission entre 0 et 100.', 'err'); return; }
+    patch('parametres?cle=eq.commission_pct', { valeur: String(n) }).then(function(){ loadFin(); toast('Commission générale : ' + n + ' %.'); }).catch(function(e){ toast(e.message, 'err'); });
+  }
+});
+Object.assign(F, {
+  checkout: function(){
+    var d = S.draft, z = zoneInfo(), c = S.cart || [];
+    if (!c.length) return;
+    if (z.st !== 'ok') return toast('La livraison n\'est pas disponible dans cette zone.', 'err');
+    if (!d.co_cren) return toast('Choisissez un créneau de livraison.', 'err');
+    if (!d.co_date || d.co_date < todayStr()) return toast('Choisissez un jour de livraison valide.', 'err');
+    if (d.co_addr === 'new'){
+      if (!d.na_prov || !d.na_ville) return toast('Choisissez la province et la ville.', 'err');
+      if ((S.geo.communes[d.na_ville] || []).length && !d.na_commune) return toast('Choisissez la commune.', 'err');
+      if (!need(d.na_avenue)) return toast('Entrez l\'avenue et le numéro.', 'err');
+    }
+    setBusy(true);
+    var pa = d.co_addr === 'new'
+      ? insert('adresses', { client_id: uid(), libelle: 'Adresse', province_id: Number(d.na_prov), ville_id: Number(d.na_ville), commune_id: d.na_commune ? Number(d.na_commune) : null, quartier: (d.na_quartier || '').trim() || null, avenue: d.na_avenue.trim(), reference: (d.na_ref || '').trim() || null, telephone: S.profile.telephone, par_defaut: !(S.addrs || []).length }).then(function(a){ S.addrs.push(a); d.co_addr = a.id; return a.id; })
+      : Promise.resolve(d.co_addr);
+    pa.then(function(id){
+      return rest('rpc/passer_commande', { method: 'POST', body: { p_adresse_id: id, p_creneau_id: Number(d.co_cren), p_date: d.co_date, p_note: (d.co_note || '').trim() || null } });
+    }).then(function(rows){
+      S.busy = false; S.success = rows || []; S.sheet = 'success'; S.cart = []; S.orders = null; d.co_note = ''; render(); loadCart(); loadNotifs().then(updateBell).catch(function(){});
+    }).catch(function(e){ S.busy = false; render(); toast(e.message, 'err'); });
+  },
+  addlivreur: function(){
+    var d = S.draft, ph = normPhone(d.lv_phone);
+    if (!ph) return toast('Entrez un numéro valide.', 'err');
+    rest('profiles?telephone=eq.' + ph + '&select=id,role,nom,prenom').then(function(r){
+      if (!r || !r[0]) throw new ApiError('Aucun compte avec ce numéro. La personne doit d\'abord s\'inscrire.');
+      if (r[0].role === 'livreur') throw new ApiError('Cette personne est déjà livreur.');
+      if (r[0].role !== 'client') throw new ApiError('Seul un compte client peut devenir livreur.');
+      return patch('profiles?id=eq.' + r[0].id, { role: 'livreur' }).then(function(){
+        return insert('livreurs', { user_id: r[0].id, vehicule: (d.lv_veh || '').trim() || null }).catch(function(){});
+      });
+    }).then(function(){ d.lv_phone = ''; d.lv_veh = ''; S.adm.livreurs = null; S.adm.orders = null; return rest('profiles?role=eq.livreur&select=id,nom,postnom,prenom,telephone'); }).then(function(x){
+      S.adm.livreurs = x || []; render(); toast('Livreur ajouté. Il doit se déconnecter puis se reconnecter.');
+    }).catch(function(e){ toast(e.message, 'err'); });
+  },
+  addcat: function(){
+    var d = S.draft; if (!need(d.c_nom)) return toast('Entrez le nom.', 'err');
+    var slug = d.c_nom.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'categorie';
+    insert('categories', { nom: d.c_nom.trim(), slug: slug + '-' + Math.floor(Math.random() * 900 + 100), parent_id: d.c_par ? Number(d.c_par) : null, actif: true }).then(function(){ d.c_nom = ''; S.cats = null; loadAdmCats(); toast('Catégorie ajoutée.'); }).catch(function(e){ toast(e.message, 'err'); });
+  }
+});
+
+/* ---------- Actualisation automatique ---------- */
+function poll(){
+  if (!S.session || !S.profile || document.hidden) return;
+  loadNotifs().then(updateBell).catch(function(){});
+  if (S.sheet) return;
+  var ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+  var r = S.profile.role, t = S.tab;
+  if (r === 'client' && t === 'commandes') loadOrders();
+  if (r === 'fournisseur' && t === 'commandes' && S.fourn) loadSupOrders();
+  if (r === 'livreur' && t === 'courses') loadLivOrders();
+  if (r === 'admin' && t === 'cmd') loadAdmOrders();
+}
+function startPoll(){ if (!S.pollT) S.pollT = setInterval(poll, 45000); }
+
 /* ---------- Événements ---------- */
 document.addEventListener('click', function(ev){
   var el = ev.target.closest('[data-act]');
@@ -988,6 +1538,7 @@ document.addEventListener('change', function(ev){
     render();
   }
   if (el.dataset.actChange === 'zprov'){ S.adm.zProv = Number(el.value); loadZones(); }
+  if (el.dataset.addrchg){ (S.draft.co_addr === 'new' ? geoDefaults('na_') : Promise.resolve()).then(prepZone).then(render).catch(function(e){ toast(e.message, 'err'); }); render(); }
   if (el.dataset.files && S.pf){
     var files = Array.prototype.slice.call(el.files || []);
     if (el.dataset.files === 'photo'){
