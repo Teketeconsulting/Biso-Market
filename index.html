@@ -202,6 +202,7 @@ function money(n, dev){
   if (dev === 'CDF') return n.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' FC';
   return n.toLocaleString('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) + ' $';
 }
+function isPiece(lib){ return /pi[eè]ce/i.test(String(lib || '')); }
 function qty(n){ return Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 }); }
 function mediaUrl(path){ return SUPABASE_URL + '/storage/v1/object/public/produits/' + String(path).split('/').map(encodeURIComponent).join('/'); }
 function toast(msg, kind){
@@ -542,13 +543,13 @@ function buyHtml(p){
   var u = (p.unites || {}).libelle || '';
   if (p.disponible === false || p.stock === 0) return '';
   if (S.session && S.profile && S.profile.role === 'client')
-    return '<div class="card"><label class="lab" for="dq">Quantité (' + esc(u) + ')</label><div class="qs"><input id="dq" type="number" inputmode="decimal" min="' + p.quantite_min + '" step="any" value="' + p.quantite_min + '"><button class="btn" style="flex:1" data-act="addcart" data-v="' + p.id + '">Ajouter au panier</button></div><p class="hint">Paiement à la livraison, en espèces.</p></div>';
+    return '<div class="card"><label class="lab" for="dq">Quantité (' + esc(u) + ')</label><div class="qs"><input id="dq" type="number" inputmode="' + (isPiece(u) ? 'numeric' : 'decimal') + '" min="' + p.quantite_min + '" step="' + (isPiece(u) ? '1' : 'any') + '" value="' + p.quantite_min + '"><button class="btn" style="flex:1" data-act="addcart" data-v="' + p.id + '">Ajouter au panier</button></div><p class="hint">Paiement à la livraison, en espèces.</p></div>';
   return '<div class="note info small">Connectez-vous avec un compte client pour commander.</div><button class="btn" data-act="go" data-v="login">Se connecter</button>';
 }
 function requestSheet(){
   return '<div class="sh-h"><h2>Demander un produit</h2><button class="x" data-act="close" aria-label="Fermer">×</button></div>' +
     '<p class="muted small">Dites-nous ce que vous cherchons. Nous contacterons nos fournisseurs.</p>' +
-    '<form data-form="request" class="card" novalidate>' + fieldHtml('r_nom', 'Produit recherché', 'text', 'Ex : silure fumé') + fieldHtml('r_qte', 'Quantité souhaitée', 'text', 'Ex : 10 kg') +
+    '<form data-form="request" class="card" novalidate>' + fieldHtml('r_nom', 'Produit recherché', 'text', 'Ex : silure fumé') + fieldHtml('r_qte', 'Quantité souhaitée', 'text', 'Ex : 10 kg ou 20 pièces') +
     fieldHtml('r_desc', 'Précisions (facultatif)', 'textarea', '') +
     '<button class="btn" type="submit"' + (S.busy ? ' disabled' : '') + '>Envoyer la demande</button></form>';
 }
@@ -972,6 +973,11 @@ function saveProduct(){
   var prix = Number(f.prix); if (!(prix > 0)) return bad('Entrez un prix supérieur à zéro.');
   var qmin = Number(f.quantite_min); if (!(qmin > 0)) return bad('La quantité minimale doit être supérieure à zéro.');
   var stock = f.stock === '' || f.stock == null ? null : Number(f.stock); if (stock !== null && !(stock >= 0)) return bad('Stock invalide.');
+  var uSel = (S.unites || []).filter(function(u){ return String(u.id) === String(f.unite_id); })[0];
+  if (uSel && isPiece(uSel.libelle)){
+    if (Math.floor(qmin) !== qmin) return bad('Pour un produit vendu à la pièce, la quantité minimale doit être un nombre entier.');
+    if (stock !== null && Math.floor(stock) !== stock) return bad('Pour un produit vendu à la pièce, le stock doit être un nombre entier.');
+  }
   var remaining = (f.media || []).filter(function(m){ return !m.del && m.type === 'photo'; }).length + f.files.length;
   if (remaining < 1) return bad('Ajoutez au moins une photo réelle du produit.');
   f.err = ''; f.saving = true; f.step = 'Enregistrement…'; render();
@@ -1397,6 +1403,7 @@ Object.assign(A, {
     var pid = el.dataset.v, inp = document.getElementById('dq'), q = Number(inp ? inp.value : 0), p = (S.cat.items || []).filter(function(x){ return x.id === pid; })[0]; if (!p) return;
     var u = (p.unites || {}).libelle || '';
     if (!(q > 0)){ toast('Entrez une quantité.', 'err'); return; }
+    if (isPiece(u) && Math.floor(q) !== q){ toast('Pour un produit vendu à la pièce, entrez un nombre entier.', 'err'); return; }
     if (q < Number(p.quantite_min)){ toast('Quantité minimale : ' + qty(p.quantite_min) + ' ' + u, 'err'); return; }
     ensureCartLoaded().then(function(){
       var ex = (S.cart || []).filter(function(x){ return x.produit_id === pid; })[0], nq = q + (ex ? Number(ex.quantite) : 0);
